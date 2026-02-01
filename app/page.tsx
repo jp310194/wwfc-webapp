@@ -34,11 +34,15 @@ export default function Home() {
   }
 
   return (
-    <main style={{ padding: 20, maxWidth: 900, margin: "0 auto" }}>
-      <h1>Wiseman West Football Club</h1>
+  <div className="app-page">
+
+    <div className="app-section">
+      <div className="app-title">Wiseman West Football Club</div>
+
       <div style={{ opacity: 0.75, marginTop: 4 }}>
         {name ? `Signed in as ${name}` : ""} {role ? `· ${role}` : ""}
       </div>
+
 
       {/* BUTTON ROW */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
@@ -63,6 +67,7 @@ export default function Home() {
           <li><b>MOTM Voting</b> is for past fixtures.</li>
         </ul>
       </section>
-    </main>
-  );
-}
+    </div>
+  </div>
+);
+
