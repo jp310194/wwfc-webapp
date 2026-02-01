@@ -16,6 +16,9 @@ export const metadata: Metadata = {
   title: "Wiseman West FC",
   description: "WWFC squad, fixtures, events,and voting",
   manifest: "/manifest.json",
+};
+
+export const viewport = {
   themeColor: "#0b0b0b",
 };
 export default function RootLayout({
