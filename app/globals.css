@@ -102,4 +102,42 @@ button {
 .app-list li {
   margin: 6px 0;
   color: var(--text);
+/* ===== Bottom Ticker ===== */
+.ticker {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 44px;
+  background: #0b5fff;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  z-index: 9999;
 }
+
+.ticker__track {
+  display: flex;
+  width: max-content;
+  animation: ticker-scroll 12s linear infinite;
+}
+
+.ticker__text {
+  color: #ffffff;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  padding-left: 24px;
+}
+
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+body {
+  padding-bottom: 56px;
+}
+
+
