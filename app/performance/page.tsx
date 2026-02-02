@@ -57,6 +57,8 @@ export default function PerformancePage() {
   }
 
   async function save(r: any) {
+    if (!isAdmin) return;
+
     const payload = {
       player_id: r.id,
       appearances: Number(r.appearances) || 0,
@@ -66,15 +68,12 @@ export default function PerformancePage() {
       motm: Number(r.motm) || 0,
     };
 
-    const res = await fetch("/api/performance/update", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    const { error } = await supabaseBrowser
+      .from("player_stats")
+      .upsert(payload, { onConflict: "player_id" });
 
-    if (!res.ok) {
-      const text = await res.text();
-      alert("Save failed: " + text);
+    if (error) {
+      alert("Save failed: " + error.message);
       return;
     }
 
@@ -109,18 +108,17 @@ export default function PerformancePage() {
                   <td key={k} className="p-3">
                     {isAdmin ? (
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         className="w-16 border rounded px-1"
-                        value={r[k]}
-                        onChange={(e) => {
-                          const value =
-                            e.target.value === "" ? 0 : Number(e.target.value);
+                        value={r[k] === 0 ? "" : (r[k] ?? "")}
+                        onChange={(e) =>
                           setRows((prev) =>
                             prev.map((x) =>
-                              x.id === r.id ? { ...x, [k]: value } : x
+                              x.id === r.id ? { ...x, [k]: e.target.value } : x
                             )
-                          );
-                        }}
+                          )
+                        }
                       />
                     ) : (
                       r[k]
