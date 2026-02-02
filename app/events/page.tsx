@@ -68,18 +68,19 @@ export default function EventsPage() {
       return;
     }
 
-    const eventsList = (evs ?? []) as EventRow[];
-    setEvents(eventsList);
+    const list = (evs ?? []) as EventRow[];
+    setEvents(list);
 
-    const ids = eventsList.map((e) => e.id);
+    const ids = list.map((e) => e.id);
     if (ids.length === 0) {
       setVoteCounts({});
       return;
     }
 
-    // IMPORTANT: this assumes your table is event_votes with columns event_id + vote
+    // ✅ votes table (NOT event_votes)
+    // Assumes columns: event_id, vote ('yes'|'no')
     const { data: votes, error: votesErr } = await supabaseBrowser
-      .from("event_votes")
+      .from("votes")
       .select("event_id, vote")
       .in("event_id", ids);
 

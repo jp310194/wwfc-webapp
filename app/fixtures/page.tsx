@@ -79,7 +79,7 @@ export default function FixturesPage() {
     }
 
     const { data: votes, error: votesErr } = await supabaseBrowser
-      .from("event_votes")
+      .from("votes")
       .select("event_id, vote")
       .in("event_id", ids);
 
