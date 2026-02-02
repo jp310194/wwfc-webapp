@@ -13,9 +13,12 @@ type EventRow = {
   type: string;
 };
 
+type VoteCountMap = Record<string, { yes: number; no: number }>;
+
 export default function EventsPage() {
   const router = useRouter();
   const [events, setEvents] = useState<EventRow[]>([]);
+  const [voteCounts, setVoteCounts] = useState<VoteCountMap>({});
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string>("");
@@ -42,14 +45,15 @@ export default function EventsPage() {
 
       setIsAdmin(me?.role === "admin");
 
-      await loadEvents();
+      await loadEventsAndCounts();
       setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
-  async function loadEvents() {
+  async function loadEventsAndCounts() {
     setStatus("");
+
     const { data: evs, error } = await supabase
       .from("events")
       .select("*")
@@ -60,10 +64,39 @@ export default function EventsPage() {
     if (error) {
       setStatus("Load failed: " + error.message);
       setEvents([]);
+      setVoteCounts({});
       return;
     }
 
-    setEvents((evs ?? []) as EventRow[]);
+    const eventsList = (evs ?? []) as EventRow[];
+    setEvents(eventsList);
+
+    // ✅ Count votes for all events on this page
+    const ids = eventsList.map((e) => e.id);
+    if (ids.length === 0) {
+      setVoteCounts({});
+      return;
+    }
+
+    const { data: votes, error: votesErr } = await supabase
+      .from("event_votes")
+      .select("event_id, vote")
+      .in("event_id", ids);
+
+    if (votesErr) {
+      setStatus("Could not load vote counts: " + votesErr.message);
+      setVoteCounts({});
+      return;
+    }
+
+    const counts: VoteCountMap = {};
+    (votes ?? []).forEach((v: any) => {
+      if (!counts[v.event_id]) counts[v.event_id] = { yes: 0, no: 0 };
+      if (v.vote === "yes") counts[v.event_id].yes += 1;
+      if (v.vote === "no") counts[v.event_id].no += 1;
+    });
+
+    setVoteCounts(counts);
   }
 
   async function createTrainingEvent() {
@@ -77,7 +110,6 @@ export default function EventsPage() {
     if (!title.trim()) return setStatus("Please add a title.");
     if (!startTimeLocal) return setStatus("Please pick a start time.");
 
-    // datetime-local is local time; convert to ISO
     const startISO = new Date(startTimeLocal).toISOString();
     const meetISO = meetTimeLocal ? new Date(meetTimeLocal).toISOString() : null;
 
@@ -98,14 +130,14 @@ export default function EventsPage() {
       return;
     }
 
-    // Clear form + refresh list
     setTitle("");
     setLocation("");
     setStartTimeLocal("");
     setMeetTimeLocal("");
     setKitColour("");
     setStatus("Training added ✅");
-    await loadEvents();
+
+    await loadEventsAndCounts();
   }
 
   return (
@@ -207,18 +239,30 @@ export default function EventsPage() {
       ) : events.length === 0 ? (
         <div style={{ marginTop: 12, color: "#666" }}>No upcoming training yet.</div>
       ) : (
-        events.map((e) => (
-          <div
-            key={e.id}
-            style={{ border: "1px solid #eee", padding: 12, marginBottom: 10 }}
-          >
-            <b>{e.title}</b>
-            <div>{new Date(e.start_time).toLocaleString()}</div>
-            <div>{e.location}</div>
-            <div>Kit: {e.kit_colour}</div>
-            <button onClick={() => router.push(`/event/${e.id}`)}>Open / Vote</button>
-          </div>
-        ))
+        events.map((e) => {
+          const c = voteCounts[e.id] ?? { yes: 0, no: 0 };
+          return (
+            <div
+              key={e.id}
+              style={{ border: "1px solid #eee", padding: 12, marginBottom: 10 }}
+            >
+              <b>{e.title}</b>
+              <div>{new Date(e.start_time).toLocaleString()}</div>
+              <div>{e.location}</div>
+              <div>Kit: {e.kit_colour}</div>
+
+              {/* ✅ Availability counts */}
+              <div style={{ marginTop: 8, display: "flex", gap: 12 }}>
+                <span>🟢 Yes: <b>{c.yes}</b></span>
+                <span>🔴 No: <b>{c.no}</b></span>
+              </div>
+
+              <button style={{ marginTop: 8 }} onClick={() => router.push(`/event/${e.id}`)}>
+                Open / Vote
+              </button>
+            </div>
+          );
+        })
       )}
     </main>
   );

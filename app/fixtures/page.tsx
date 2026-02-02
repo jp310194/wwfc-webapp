@@ -14,9 +14,12 @@ type FixtureRow = {
   type: string;
 };
 
+type VoteCountMap = Record<string, { yes: number; no: number }>;
+
 export default function FixturesPage() {
   const router = useRouter();
   const [fixtures, setFixtures] = useState<FixtureRow[]>([]);
+  const [voteCounts, setVoteCounts] = useState<VoteCountMap>({});
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string>("");
@@ -44,13 +47,13 @@ export default function FixturesPage() {
 
       setIsAdmin(me?.role === "admin");
 
-      await loadFixtures();
+      await loadFixturesAndCounts();
       setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
-  async function loadFixtures() {
+  async function loadFixturesAndCounts() {
     setStatus("");
 
     const { data: evs, error } = await supabase
@@ -62,10 +65,38 @@ export default function FixturesPage() {
     if (error) {
       setStatus("Load failed: " + error.message);
       setFixtures([]);
+      setVoteCounts({});
       return;
     }
 
-    setFixtures((evs ?? []) as FixtureRow[]);
+    const list = (evs ?? []) as FixtureRow[];
+    setFixtures(list);
+
+    const ids = list.map((e) => e.id);
+    if (ids.length === 0) {
+      setVoteCounts({});
+      return;
+    }
+
+    const { data: votes, error: votesErr } = await supabase
+      .from("event_votes")
+      .select("event_id, vote")
+      .in("event_id", ids);
+
+    if (votesErr) {
+      setStatus("Could not load vote counts: " + votesErr.message);
+      setVoteCounts({});
+      return;
+    }
+
+    const counts: VoteCountMap = {};
+    (votes ?? []).forEach((v: any) => {
+      if (!counts[v.event_id]) counts[v.event_id] = { yes: 0, no: 0 };
+      if (v.vote === "yes") counts[v.event_id].yes += 1;
+      if (v.vote === "no") counts[v.event_id].no += 1;
+    });
+
+    setVoteCounts(counts);
   }
 
   async function createFixture() {
@@ -107,7 +138,8 @@ export default function FixturesPage() {
     setMeetTimeLocal("");
     setKitColour("");
     setStatus("Fixture added ✅");
-    await loadFixtures();
+
+    await loadFixturesAndCounts();
   }
 
   return (
@@ -219,18 +251,30 @@ export default function FixturesPage() {
       ) : fixtures.length === 0 ? (
         <div style={{ marginTop: 12, color: "#666" }}>No fixtures yet.</div>
       ) : (
-        fixtures.map((f) => (
-          <div
-            key={f.id}
-            style={{ border: "1px solid #eee", padding: 12, marginBottom: 10 }}
-          >
-            <b>{f.title}</b>
-            <div>{new Date(f.start_time).toLocaleString()}</div>
-            <div>{f.location}</div>
-            <div>Kit: {f.kit_colour}</div>
-            <button onClick={() => router.push(`/event/${f.id}`)}>Open / Vote</button>
-          </div>
-        ))
+        fixtures.map((f) => {
+          const c = voteCounts[f.id] ?? { yes: 0, no: 0 };
+          return (
+            <div
+              key={f.id}
+              style={{ border: "1px solid #eee", padding: 12, marginBottom: 10 }}
+            >
+              <b>{f.title}</b>
+              <div>{new Date(f.start_time).toLocaleString()}</div>
+              <div>{f.location}</div>
+              <div>Kit: {f.kit_colour}</div>
+
+              {/* ✅ Availability counts */}
+              <div style={{ marginTop: 8, display: "flex", gap: 12 }}>
+                <span>🟢 Yes: <b>{c.yes}</b></span>
+                <span>🔴 No: <b>{c.no}</b></span>
+              </div>
+
+              <button style={{ marginTop: 8 }} onClick={() => router.push(`/event/${f.id}`)}>
+                Open / Vote
+              </button>
+            </div>
+          );
+        })
       )}
     </main>
   );
