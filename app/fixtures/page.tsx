@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabaseBrowser } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 
 type FixtureRow = {
@@ -28,23 +28,23 @@ export default function FixturesPage() {
   const [title, setTitle] = useState("");
   const [opponent, setOpponent] = useState("");
   const [location, setLocation] = useState("");
-  const [startTimeLocal, setStartTimeLocal] = useState(""); // datetime-local
-  const [meetTimeLocal, setMeetTimeLocal] = useState(""); // datetime-local (optional)
+  const [startTimeLocal, setStartTimeLocal] = useState("");
+  const [meetTimeLocal, setMeetTimeLocal] = useState("");
   const [kitColour, setKitColour] = useState("");
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.auth.getSession();
+      const { data } = await supabaseBrowser.auth.getSession();
       const session = data.session;
       if (!session) return router.push("/login");
 
-      // Check admin
-      const { data: me } = await supabase
+      const { data: me, error: meErr } = await supabaseBrowser
         .from("profiles")
         .select("role")
         .eq("id", session.user.id)
         .single();
 
+      if (meErr) setStatus("Role check failed: " + meErr.message);
       setIsAdmin(me?.role === "admin");
 
       await loadFixturesAndCounts();
@@ -56,7 +56,7 @@ export default function FixturesPage() {
   async function loadFixturesAndCounts() {
     setStatus("");
 
-    const { data: evs, error } = await supabase
+    const { data: evs, error } = await supabaseBrowser
       .from("events")
       .select("*")
       .eq("type", "fixture")
@@ -78,7 +78,7 @@ export default function FixturesPage() {
       return;
     }
 
-    const { data: votes, error: votesErr } = await supabase
+    const { data: votes, error: votesErr } = await supabaseBrowser
       .from("event_votes")
       .select("event_id, vote")
       .in("event_id", ids);
@@ -102,7 +102,7 @@ export default function FixturesPage() {
   async function createFixture() {
     setStatus("");
 
-    const { data } = await supabase.auth.getSession();
+    const { data } = await supabaseBrowser.auth.getSession();
     const session = data.session;
     if (!session) return router.push("/login");
     if (!isAdmin) return setStatus("Not allowed: admin only.");
@@ -124,7 +124,7 @@ export default function FixturesPage() {
       created_by: session.user.id,
     };
 
-    const { error } = await supabase.from("events").insert(payload);
+    const { error } = await supabaseBrowser.from("events").insert(payload);
 
     if (error) {
       setStatus("Create failed: " + error.message);
@@ -153,7 +153,6 @@ export default function FixturesPage() {
         </div>
       )}
 
-      {/* Admin: Create Fixture */}
       {isAdmin && (
         <div
           style={{
@@ -245,7 +244,6 @@ export default function FixturesPage() {
         </div>
       )}
 
-      {/* List Fixtures */}
       {loading ? (
         <div>Loading…</div>
       ) : fixtures.length === 0 ? (
@@ -254,16 +252,12 @@ export default function FixturesPage() {
         fixtures.map((f) => {
           const c = voteCounts[f.id] ?? { yes: 0, no: 0 };
           return (
-            <div
-              key={f.id}
-              style={{ border: "1px solid #eee", padding: 12, marginBottom: 10 }}
-            >
+            <div key={f.id} style={{ border: "1px solid #eee", padding: 12, marginBottom: 10 }}>
               <b>{f.title}</b>
               <div>{new Date(f.start_time).toLocaleString()}</div>
               <div>{f.location}</div>
               <div>Kit: {f.kit_colour}</div>
 
-              {/* ✅ Availability counts */}
               <div style={{ marginTop: 8, display: "flex", gap: 12 }}>
                 <span>🟢 Yes: <b>{c.yes}</b></span>
                 <span>🔴 No: <b>{c.no}</b></span>

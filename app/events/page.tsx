@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabaseBrowser } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 
 type EventRow = {
@@ -32,17 +32,17 @@ export default function EventsPage() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.auth.getSession();
+      const { data } = await supabaseBrowser.auth.getSession();
       const session = data.session;
       if (!session) return router.push("/login");
 
-      // Check admin
-      const { data: me } = await supabase
+      const { data: me, error: meErr } = await supabaseBrowser
         .from("profiles")
         .select("role")
         .eq("id", session.user.id)
         .single();
 
+      if (meErr) setStatus("Role check failed: " + meErr.message);
       setIsAdmin(me?.role === "admin");
 
       await loadEventsAndCounts();
@@ -54,7 +54,7 @@ export default function EventsPage() {
   async function loadEventsAndCounts() {
     setStatus("");
 
-    const { data: evs, error } = await supabase
+    const { data: evs, error } = await supabaseBrowser
       .from("events")
       .select("*")
       .eq("type", "training")
@@ -71,14 +71,14 @@ export default function EventsPage() {
     const eventsList = (evs ?? []) as EventRow[];
     setEvents(eventsList);
 
-    // ✅ Count votes for all events on this page
     const ids = eventsList.map((e) => e.id);
     if (ids.length === 0) {
       setVoteCounts({});
       return;
     }
 
-    const { data: votes, error: votesErr } = await supabase
+    // IMPORTANT: this assumes your table is event_votes with columns event_id + vote
+    const { data: votes, error: votesErr } = await supabaseBrowser
       .from("event_votes")
       .select("event_id, vote")
       .in("event_id", ids);
@@ -102,7 +102,7 @@ export default function EventsPage() {
   async function createTrainingEvent() {
     setStatus("");
 
-    const { data } = await supabase.auth.getSession();
+    const { data } = await supabaseBrowser.auth.getSession();
     const session = data.session;
     if (!session) return router.push("/login");
     if (!isAdmin) return setStatus("Not allowed: admin only.");
@@ -123,7 +123,7 @@ export default function EventsPage() {
       created_by: session.user.id,
     };
 
-    const { error } = await supabase.from("events").insert(payload);
+    const { error } = await supabaseBrowser.from("events").insert(payload);
 
     if (error) {
       setStatus("Create failed: " + error.message);
@@ -151,7 +151,6 @@ export default function EventsPage() {
         </div>
       )}
 
-      {/* Admin: Create Training */}
       {isAdmin && (
         <div
           style={{
@@ -233,7 +232,6 @@ export default function EventsPage() {
         </div>
       )}
 
-      {/* List Training */}
       {loading ? (
         <div>Loading…</div>
       ) : events.length === 0 ? (
@@ -242,16 +240,12 @@ export default function EventsPage() {
         events.map((e) => {
           const c = voteCounts[e.id] ?? { yes: 0, no: 0 };
           return (
-            <div
-              key={e.id}
-              style={{ border: "1px solid #eee", padding: 12, marginBottom: 10 }}
-            >
+            <div key={e.id} style={{ border: "1px solid #eee", padding: 12, marginBottom: 10 }}>
               <b>{e.title}</b>
               <div>{new Date(e.start_time).toLocaleString()}</div>
               <div>{e.location}</div>
               <div>Kit: {e.kit_colour}</div>
 
-              {/* ✅ Availability counts */}
               <div style={{ marginTop: 8, display: "flex", gap: 12 }}>
                 <span>🟢 Yes: <b>{c.yes}</b></span>
                 <span>🔴 No: <b>{c.no}</b></span>
