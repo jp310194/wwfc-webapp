@@ -7,14 +7,23 @@ import { supabaseBrowser } from "@/utils/supabase/client";
 type Row = {
   id: string;
   name: string;
-  appearances: any;
-  goals: any;
-  assists: any;
-  clean_sheets: any;
-  motm: any;
+  appearances: string | number;
+  goals: string | number;
+  assists: string | number;
+  clean_sheets: string | number;
+  motm: string | number;
 };
 
 const FIELDS = ["appearances", "goals", "assists", "clean_sheets", "motm"] as const;
+
+function toInt(v: any) {
+  // Keep empty as 0, but never allow NaN
+  if (v === null || v === undefined) return 0;
+  const s = String(v).trim();
+  if (s === "") return 0;
+  const n = Number(s);
+  return Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0;
+}
 
 export default function PerformancePage() {
   const router = useRouter();
@@ -24,6 +33,7 @@ export default function PerformancePage() {
   const [loading, setLoading] = useState(false);
   const [savingRowId, setSavingRowId] = useState<string | null>(null);
   const [savingAll, setSavingAll] = useState(false);
+  const [status, setStatus] = useState<string>("");
 
   useEffect(() => {
     load();
@@ -32,22 +42,29 @@ export default function PerformancePage() {
 
   async function load() {
     setLoading(true);
+    setStatus("");
 
     const { data: sessionData } = await supabaseBrowser.auth.getSession();
     const user = sessionData.session?.user;
-
     if (!user) {
       setLoading(false);
       return;
     }
 
-    const { data: me } = await supabaseBrowser
+    const { data: me, error: meErr } = await supabaseBrowser
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single();
 
-    setIsAdmin(me?.role === "admin");
+    if (meErr) {
+      setLoading(false);
+      setStatus("Could not load your profile role.");
+      return;
+    }
+
+    const admin = me?.role === "admin";
+    setIsAdmin(admin);
 
     const { data, error } = await supabaseBrowser
       .from("profiles")
@@ -66,8 +83,8 @@ export default function PerformancePage() {
       );
 
     if (error) {
-      alert("Load failed: " + error.message);
       setLoading(false);
+      setStatus("Load failed: " + error.message);
       return;
     }
 
@@ -75,6 +92,7 @@ export default function PerformancePage() {
       data?.map((p: any) => ({
         id: p.id,
         name: p.name,
+        // IMPORTANT: always store as numbers initially so they display (no blanks)
         appearances: p.player_stats?.[0]?.appearances ?? 0,
         goals: p.player_stats?.[0]?.goals ?? 0,
         assists: p.player_stats?.[0]?.assists ?? 0,
@@ -84,69 +102,123 @@ export default function PerformancePage() {
 
     mapped.sort((a, b) => Number(b.appearances) - Number(a.appearances));
     setRows(mapped);
-
     setLoading(false);
   }
 
-  function toPayload(r: Row) {
+  function payloadFromRow(r: Row) {
     return {
       player_id: r.id,
-      appearances: Number(r.appearances) || 0,
-      goals: Number(r.goals) || 0,
-      assists: Number(r.assists) || 0,
-      clean_sheets: Number(r.clean_sheets) || 0,
-      motm: Number(r.motm) || 0,
+      appearances: toInt(r.appearances),
+      goals: toInt(r.goals),
+      assists: toInt(r.assists),
+      clean_sheets: toInt(r.clean_sheets),
+      motm: toInt(r.motm),
     };
+  }
+
+  async function reReadSavedRow(playerId: string) {
+    // Re-fetch just the saved row to confirm persistence
+    const { data, error } = await supabaseBrowser
+      .from("player_stats")
+      .select("player_id, appearances, goals, assists, clean_sheets, motm")
+      .eq("player_id", playerId)
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    return data;
   }
 
   async function save(r: Row) {
     if (!isAdmin) return;
 
     setSavingRowId(r.id);
+    setStatus("");
+
+    const payload = payloadFromRow(r);
 
     const { error } = await supabaseBrowser
       .from("player_stats")
-      .upsert(toPayload(r), { onConflict: "player_id" });
-
-    setSavingRowId(null);
+      .upsert(payload, { onConflict: "player_id" });
 
     if (error) {
-      alert("Save failed: " + error.message);
+      setSavingRowId(null);
+      setStatus("Save failed: " + error.message);
       return;
     }
 
-    // IMPORTANT: do not call load() here, so you don't wipe other unsaved edits
+    // Update local screen immediately with normalised numbers
+    setRows((prev) =>
+      prev.map((x) =>
+        x.id === r.id
+          ? {
+              ...x,
+              appearances: payload.appearances,
+              goals: payload.goals,
+              assists: payload.assists,
+              clean_sheets: payload.clean_sheets,
+              motm: payload.motm,
+            }
+          : x
+      )
+    );
+
+    // Confirm it actually persisted in DB
+    try {
+      await reReadSavedRow(r.id);
+      setStatus("Saved ✅");
+    } catch (e: any) {
+      setStatus(
+        "Saved locally, but DB re-check failed (likely permissions/RLS): " + e.message
+      );
+    } finally {
+      setSavingRowId(null);
+    }
   }
 
   async function saveAll() {
     if (!isAdmin) return;
 
     setSavingAll(true);
+    setStatus("");
 
-    const payload = rows.map(toPayload);
+    const payload = rows.map(payloadFromRow);
 
     const { error } = await supabaseBrowser
       .from("player_stats")
       .upsert(payload, { onConflict: "player_id" });
 
-    setSavingAll(false);
-
     if (error) {
-      alert("Save all failed: " + error.message);
+      setSavingAll(false);
+      setStatus("Save all failed: " + error.message);
       return;
     }
 
-    // Still do not auto-load; keep what you see on screen
+    // Normalise local display
+    setRows((prev) =>
+      prev.map((x) => {
+        const p = payload.find((q) => q.player_id === x.id);
+        if (!p) return x;
+        return {
+          ...x,
+          appearances: p.appearances,
+          goals: p.goals,
+          assists: p.assists,
+          clean_sheets: p.clean_sheets,
+          motm: p.motm,
+        };
+      })
+    );
+
+    setSavingAll(false);
+    setStatus("Saved all ✅");
   }
 
   const rankSortedRows = useMemo(() => {
-    // Keep rank stable even while editing: sort by numeric appearances
     return [...rows].sort((a, b) => Number(b.appearances) - Number(a.appearances));
   }, [rows]);
 
   return (
     <main className="p-6">
-      {/* Top actions */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <button
           onClick={() => router.push("/")}
@@ -157,8 +229,8 @@ export default function PerformancePage() {
 
         <button
           onClick={load}
-          className="px-4 py-2 rounded border bg-white hover:bg-gray-50"
-          disabled={loading}
+          className="px-4 py-2 rounded border bg-white hover:bg-gray-50 disabled:opacity-60"
+          disabled={loading || savingAll || !!savingRowId}
         >
           {loading ? "Refreshing..." : "Refresh"}
         </button>
@@ -167,10 +239,16 @@ export default function PerformancePage() {
           <button
             onClick={saveAll}
             className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-60"
-            disabled={savingAll || loading}
+            disabled={savingAll || loading || !!savingRowId}
           >
             {savingAll ? "Saving All..." : "Save All"}
           </button>
+        )}
+
+        {status && (
+          <span className="text-sm text-gray-600 ml-2">
+            {status}
+          </span>
         )}
       </div>
 
@@ -201,10 +279,9 @@ export default function PerformancePage() {
                   <td key={k} className="p-3">
                     {isAdmin ? (
                       <input
-                        type="text"
-                        inputMode="numeric"
-                        className="w-16 border rounded px-2 py-1"
-                        value={(r as any)[k] ?? ""}
+                        type="number"
+                        className="w-20 border rounded px-2 py-1"
+                        value={String((r as any)[k] ?? 0)}
                         onChange={(e) =>
                           setRows((prev) =>
                             prev.map((x) =>
@@ -212,9 +289,11 @@ export default function PerformancePage() {
                             )
                           )
                         }
+                        disabled={savingAll || savingRowId === r.id}
+                        min={0}
                       />
                     ) : (
-                      (r as any)[k]
+                      String((r as any)[k] ?? 0)
                     )}
                   </td>
                 ))}
