@@ -4,39 +4,222 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 
+type EventRow = {
+  id: string;
+  title: string;
+  start_time: string;
+  location: string | null;
+  kit_colour: string | null;
+  type: string;
+};
+
 export default function EventsPage() {
   const router = useRouter();
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<EventRow[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<string>("");
+
+  // Admin create form state (Training)
+  const [title, setTitle] = useState("");
+  const [location, setLocation] = useState("");
+  const [startTimeLocal, setStartTimeLocal] = useState(""); // datetime-local
+  const [meetTimeLocal, setMeetTimeLocal] = useState(""); // datetime-local (optional)
+  const [kitColour, setKitColour] = useState("");
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getSession();
-      if (!data.session) return router.push("/login");
+      const session = data.session;
+      if (!session) return router.push("/login");
 
-      const { data: evs } = await supabase
-        .from("events")
-        .select("*")
-        .gte("start_time", new Date().toISOString())
-        .order("start_time", { ascending: true });
+      // Check admin
+      const { data: me } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", session.user.id)
+        .single();
 
-      setEvents(evs ?? []);
+      setIsAdmin(me?.role === "admin");
+
+      await loadEvents();
+      setLoading(false);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
+
+  async function loadEvents() {
+    setStatus("");
+    const { data: evs, error } = await supabase
+      .from("events")
+      .select("*")
+      .eq("type", "training")
+      .gte("start_time", new Date().toISOString())
+      .order("start_time", { ascending: true });
+
+    if (error) {
+      setStatus("Load failed: " + error.message);
+      setEvents([]);
+      return;
+    }
+
+    setEvents((evs ?? []) as EventRow[]);
+  }
+
+  async function createTrainingEvent() {
+    setStatus("");
+
+    const { data } = await supabase.auth.getSession();
+    const session = data.session;
+    if (!session) return router.push("/login");
+    if (!isAdmin) return setStatus("Not allowed: admin only.");
+
+    if (!title.trim()) return setStatus("Please add a title.");
+    if (!startTimeLocal) return setStatus("Please pick a start time.");
+
+    // datetime-local is local time; convert to ISO
+    const startISO = new Date(startTimeLocal).toISOString();
+    const meetISO = meetTimeLocal ? new Date(meetTimeLocal).toISOString() : null;
+
+    const payload: any = {
+      type: "training",
+      title: title.trim(),
+      location: location.trim() || null,
+      start_time: startISO,
+      meet_time: meetISO,
+      kit_colour: kitColour.trim() || null,
+      created_by: session.user.id,
+    };
+
+    const { error } = await supabase.from("events").insert(payload);
+
+    if (error) {
+      setStatus("Create failed: " + error.message);
+      return;
+    }
+
+    // Clear form + refresh list
+    setTitle("");
+    setLocation("");
+    setStartTimeLocal("");
+    setMeetTimeLocal("");
+    setKitColour("");
+    setStatus("Training added ✅");
+    await loadEvents();
+  }
 
   return (
     <main style={{ padding: 20 }}>
       <button onClick={() => router.push("/")}>← Home</button>
-      <h1>Upcoming Events</h1>
+      <h1>Training</h1>
 
-      {events.map((e) => (
-        <div key={e.id} style={{ border: "1px solid #eee", padding: 12, marginBottom: 10 }}>
-          <b>{e.title}</b>
-          <div>{new Date(e.start_time).toLocaleString()}</div>
-          <div>{e.location}</div>
-          <div>Kit: {e.kit_colour}</div>
-          <button onClick={() => router.push(`/event/${e.id}`)}>Open / Vote</button>
+      {status && (
+        <div style={{ marginTop: 10, marginBottom: 10, color: "#444" }}>
+          {status}
         </div>
-      ))}
+      )}
+
+      {/* Admin: Create Training */}
+      {isAdmin && (
+        <div
+          style={{
+            border: "1px solid #ddd",
+            padding: 12,
+            borderRadius: 8,
+            marginTop: 12,
+            marginBottom: 16,
+            background: "#fafafa",
+          }}
+        >
+          <b>Add Training (Admin)</b>
+
+          <div style={{ display: "grid", gap: 8, marginTop: 10, maxWidth: 420 }}>
+            <label>
+              Title
+              <input
+                style={{ width: "100%", padding: 8, border: "1px solid #ccc", borderRadius: 6 }}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Training Wednesday"
+              />
+            </label>
+
+            <label>
+              Location
+              <input
+                style={{ width: "100%", padding: 8, border: "1px solid #ccc", borderRadius: 6 }}
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="Wormwood Scrubs, Pitch 2"
+              />
+            </label>
+
+            <label>
+              Meet time (optional)
+              <input
+                type="datetime-local"
+                style={{ width: "100%", padding: 8, border: "1px solid #ccc", borderRadius: 6 }}
+                value={meetTimeLocal}
+                onChange={(e) => setMeetTimeLocal(e.target.value)}
+              />
+            </label>
+
+            <label>
+              Start time
+              <input
+                type="datetime-local"
+                style={{ width: "100%", padding: 8, border: "1px solid #ccc", borderRadius: 6 }}
+                value={startTimeLocal}
+                onChange={(e) => setStartTimeLocal(e.target.value)}
+              />
+            </label>
+
+            <label>
+              Kit colour (optional)
+              <input
+                style={{ width: "100%", padding: 8, border: "1px solid #ccc", borderRadius: 6 }}
+                value={kitColour}
+                onChange={(e) => setKitColour(e.target.value)}
+                placeholder="Black / White / Blue"
+              />
+            </label>
+
+            <button
+              onClick={createTrainingEvent}
+              style={{
+                padding: "10px 12px",
+                borderRadius: 8,
+                border: "1px solid #111",
+                background: "#111",
+                color: "white",
+                cursor: "pointer",
+              }}
+            >
+              Add Training
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* List Training */}
+      {loading ? (
+        <div>Loading…</div>
+      ) : events.length === 0 ? (
+        <div style={{ marginTop: 12, color: "#666" }}>No upcoming training yet.</div>
+      ) : (
+        events.map((e) => (
+          <div
+            key={e.id}
+            style={{ border: "1px solid #eee", padding: 12, marginBottom: 10 }}
+          >
+            <b>{e.title}</b>
+            <div>{new Date(e.start_time).toLocaleString()}</div>
+            <div>{e.location}</div>
+            <div>Kit: {e.kit_colour}</div>
+            <button onClick={() => router.push(`/event/${e.id}`)}>Open / Vote</button>
+          </div>
+        ))
+      )}
     </main>
   );
 }
