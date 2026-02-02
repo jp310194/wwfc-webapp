@@ -122,3 +122,31 @@ h2{
   from{ transform:translateX(0); }
   to{ transform:translateX(-50%); }
 }
+/* ===== WWFC POWER HEADINGS ===== */
+
+h1{
+  font-size:32px;
+  font-weight:900;
+  letter-spacing:-0.03em;
+  margin-bottom:18px;
+  padding-bottom:8px;
+  border-bottom:3px solid #0b5fff;
+}
+
+h2{
+  font-size:22px;
+  font-weight:900;
+  letter-spacing:-0.02em;
+  margin-top:28px;
+  margin-bottom:12px;
+  padding-left:10px;
+  border-left:5px solid #0b5fff;
+}
+
+h3{
+  font-size:18px;
+  font-weight:800;
+  margin-top:18px;
+  margin-bottom:8px;
+}
+
