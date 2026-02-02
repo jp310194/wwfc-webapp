@@ -51,7 +51,12 @@ export default function RootLayout({
                 <main style={{ maxWidth: 960, margin: "0 auto", padding: 20 }}>
           {children}
         </main>
-
+      <div className="wwfc-ticker">
+        <div className="wwfc-ticker__track">
+          <div className="wwfc-ticker__text">UP THE WISEMAN • UP THE WISEMAN • UP THE WISEMAN •</div>
+          <div className="wwfc-ticker__text">UP THE WISEMAN • UP THE WISEMAN • UP THE WISEMAN •</div>
+        </div>
+      </div>
         {/* Bottom ticker */}
         <div className="ticker" aria-label="WWFC ticker">
           <div className="ticker__track">

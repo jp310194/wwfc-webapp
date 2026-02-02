@@ -101,3 +101,40 @@ body{
   background: #f8fafc;
   border-color: #cbd5e1;
 }
+/* --- WWFC bottom ticker --- */
+.wwfc-ticker {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 44px;
+  background: #2563eb; /* blue */
+  color: #ffffff;      /* white text */
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  z-index: 9999;
+  border-top: 1px solid rgba(0,0,0,0.08);
+}
+
+.wwfc-ticker__track {
+  display: inline-flex;
+  white-space: nowrap;
+  will-change: transform;
+  animation: wwfc-marquee 12s linear infinite;
+}
+
+.wwfc-ticker__text {
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding-left: 24px;
+  padding-right: 24px;
+  font-size: 14px;
+}
+
+@keyframes wwfc-marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
