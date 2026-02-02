@@ -1,9 +1,33 @@
-"use client";
+import Link from "next/link";
+import { supabaseServer } from "@/lib/supabaseServer";
 
-import { useRouter } from "next/navigation";
+type NextUpRow = {
+  kind: "event" | "fixture";
+  id: string;
+  title: string;
+  starts_at: string; // ISO timestamp
+  location: string;
+  extra: any; // jsonb
+};
 
-export default function HomePage() {
-  const router = useRouter();
+function formatDateTime(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleString("en-GB", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export default async function HomePage() {
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase.rpc("next_up").maybeSingle<NextUpRow>();
+
+  // If the RPC fails, we still render the page (and show a small message)
+  const nextUp = !error ? data : null;
 
   return (
     <div className="app-page">
@@ -11,41 +35,59 @@ export default function HomePage() {
         <h1 className="app-title">Wiseman West FC</h1>
         <p className="app-subtitle">Squad • Fixtures • Events • Voting</p>
 
-        <div className="nav-grid">
-          {/* Left column (4) */}
-          <button className="nav-card" onClick={() => router.push("/players")}>
-            Players
-          </button>
-          <button className="nav-card" onClick={() => router.push("/fixtures")}>
-            Fixtures
-          </button>
-          <button className="nav-card" onClick={() => router.push("/events")}>
-            Events (Vote In/Out)
-          </button>
-          <button className="nav-card" onClick={() => router.push("/forum")}>
-            Forum
-          </button>
+        {error ? (
+          <div className="app-card" style={{ borderColor: "#fecaca" }}>
+            <div style={{ fontWeight: 800, marginBottom: 6 }}>Next up</div>
+            <div style={{ color: "#991b1b" }}>
+              Couldn’t load next fixture/event (RPC error).
+            </div>
+          </div>
+        ) : nextUp ? (
+          <div className="app-card">
+            <div className="app-card-top">
+              <div className="app-pill">{nextUp.kind === "fixture" ? "FIXTURE" : "EVENT"}</div>
+              <div className="app-card-title">{nextUp.title}</div>
+            </div>
 
-          {/* Right column (3) */}
-          <button className="nav-card" onClick={() => router.push("/motm")}>
-            MOTM
-          </button>
-          <button className="nav-card" onClick={() => router.push("/ratings")}>
-            Ratings
-          </button>
-          <button className="nav-card" onClick={() => router.push("/profile")}>
-            My Profile
-          </button>
+            <div className="app-card-meta">
+              <div><b>When:</b> {formatDateTime(nextUp.starts_at)}</div>
+              {nextUp.location ? <div><b>Where:</b> {nextUp.location}</div> : null}
+
+              {/* Extra fields (only show if present) */}
+              {nextUp.extra?.meet_time ? (
+                <div><b>Meet:</b> {formatDateTime(nextUp.extra.meet_time)}</div>
+              ) : null}
+              {nextUp.extra?.kick_off_time ? (
+                <div><b>Kick off:</b> {formatDateTime(nextUp.extra.kick_off_time)}</div>
+              ) : null}
+              {nextUp.extra?.kit_colour ? (
+                <div><b>Kit:</b> {nextUp.extra.kit_colour}</div>
+              ) : null}
+            </div>
+
+            <div style={{ marginTop: 10 }}>
+              <Link className="app-link" href={nextUp.kind === "fixture" ? "/fixtures" : "/events"}>
+                View all {nextUp.kind === "fixture" ? "fixtures" : "events"} →
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="app-card">
+            <div style={{ fontWeight: 800, marginBottom: 6 }}>Next up</div>
+            <div style={{ opacity: 0.8 }}>No upcoming fixture/event found.</div>
+          </div>
+        )}
+
+        {/* Buttons grid (2 columns) */}
+        <div className="app-grid">
+          <Link className="app-tile" href="/profile">My Profile</Link>
+          <Link className="app-tile" href="/players">Players</Link>
+          <Link className="app-tile" href="/fixtures">Fixtures</Link>
+          <Link className="app-tile" href="/events">Events</Link>
+          <Link className="app-tile" href="/forum">Forum</Link>
+          <Link className="app-tile" href="/ratings">Ratings</Link>
+          <Link className="app-tile" href="/motm">MOTM</Link>
         </div>
-      </div>
-
-      <div className="app-section">
-        <h2 className="app-heading">Quick tips</h2>
-        <ul className="app-list">
-          <li>Admins create events in <b>Admin</b>.</li>
-          <li>Players vote in/out on the <b>Events</b> page.</li>
-          <li>Check <b>Fixtures</b> for upcoming matches.</li>
-        </ul>
       </div>
     </div>
   );

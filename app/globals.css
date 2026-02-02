@@ -1,215 +1,103 @@
 :root{
   --bg:#ffffff;
-  --text:#111827;
-  --muted:#6b7280;
+  --text:#0f172a;
+  --muted:#64748b;
+  --blue:#2563eb;
   --border:#e5e7eb;
-  --blue:#0b5fff;
+  --card:#ffffff;
 }
 
-*{box-sizing:border-box;}
-html,body{height:100%;}
+html, body { height: 100%; }
 body{
   margin:0;
   background:var(--bg);
   color:var(--text);
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-  padding-bottom:56px; /* space for ticker */
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
 }
 
-/* ===== WWFC basic headings ===== */
-h1{
-  font-size:28px;
-  font-weight:900;
-  margin:0 0 14px 0;
-  letter-spacing:-0.02em;
-}
+/* Layout wrappers */
+.app-page{ padding: 8px 0 80px; } /* extra bottom space if you have a ticker */
+.app-section{ max-width: 960px; margin: 0 auto; padding: 16px; }
 
-h2{
-  font-size:18px;
-  font-weight:900;
-  margin:0 0 10px 0;
+/* Headings */
+.app-title{
+  font-size: 26px;
+  font-weight: 900;
+  margin: 10px 0 4px;
+  letter-spacing: -0.02em;
 }
-
-/* ===== Reusable UI classes used on home page ===== */
-.app-wrap{
-  max-width:960px;
-  margin:0 auto;
-  padding:20px;
-}
-
 .app-subtitle{
-  color:var(--muted);
-  margin-top:6px;
-  margin-bottom:14px;
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-weight: 600;
 }
 
-.app-actions{
-  display:flex;
-  flex-wrap:wrap;
-  gap:10px;
-  margin-top:12px;
+/* Card */
+.app-card{
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  margin-bottom: 14px;
 }
-
-.app-btn{
-  appearance:none;
-  border:1px solid var(--border);
-  background:#fff;
-  color:var(--text);
-  padding:10px 14px;
-  border-radius:12px;
-  font-weight:800;
-  cursor:pointer;
+.app-card-top{ display:flex; flex-direction:column; gap:8px; }
+.app-pill{
+  align-self:flex-start;
+  background:#e0e7ff;
+  color:#1e40af;
+  font-weight: 900;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #c7d2fe;
 }
-
-.app-btn:hover{
-  border-color:#cbd5e1;
-  transform: translateY(-1px);
+.app-card-title{
+  font-size: 18px;
+  font-weight: 900;
 }
-
-.app-section{
-  margin-top:18px;
-  border:1px solid var(--border);
-  border-radius:14px;
-  padding:14px;
-  background:#fff;
+.app-card-meta{
+  margin-top: 10px;
+  display: grid;
+  gap: 6px;
+  color: var(--text);
+  font-size: 14px;
 }
-
-.app-heading{
-  margin:0 0 10px 0;
-  font-weight:900;
+.app-link{
+  color: var(--blue);
+  font-weight: 800;
+  text-decoration: none;
 }
+.app-link:hover{ text-decoration: underline; }
 
-.app-list{
-  margin:6px 0 0 18px;
-  padding:0;
-}
-
-.app-list li{
-  margin:6px 0;
-  color:var(--text);
-}
-
-/* ===== Bottom ticker ===== */
-.ticker{
-  position:fixed;
-  left:0;
-  right:0;
-  bottom:0;
-  height:44px;
-  background:var(--blue);
-  display:flex;
-  align-items:center;
-  overflow:hidden;
-  z-index:9999;
-}
-
-.ticker__track{
-  display:flex;
-  width:max-content;
-  animation:ticker-scroll 12s linear infinite;
-}
-
-.ticker__text{
-  color:#fff;
-  font-weight:900;
-  letter-spacing:0.08em;
-  text-transform:uppercase;
-  white-space:nowrap;
-  padding-left:24px;
-}
-
-@keyframes ticker-scroll{
-  from{ transform:translateX(0); }
-  to{ transform:translateX(-50%); }
-}
-/* ===== WWFC POWER HEADINGS ===== */
-
-h1{
-  font-size:32px;
-  font-weight:900;
-  letter-spacing:-0.03em;
-  margin-bottom:18px;
-  padding-bottom:8px;
-  border-bottom:3px solid #0b5fff;
-}
-
-h2{
-  font-size:22px;
-  font-weight:900;
-  letter-spacing:-0.02em;
-  margin-top:28px;
-  margin-bottom:12px;
-  padding-left:10px;
-  border-left:5px solid #0b5fff;
-}
-
-h3{
-  font-size:18px;
-  font-weight:800;
-  margin-top:18px;
-  margin-bottom:8px;
-}
-
-/* ===== WWFC DASHBOARD GRID ===== */
-
-.dashboard-grid{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:18px;
-  margin-top:24px;
-}
-
-.dashboard-card{
-  border:1px solid #e5e7eb;
-  border-radius:10px;
-  padding:18px 20px;
-  background:#ffffff;
-  transition:all .2s ease;
-  cursor:pointer;
-}
-
-.dashboard-card:hover{
-  transform:translateY(-3px);
-  box-shadow:0 6px 14px rgba(0,0,0,0.08);
-}
-
-.dashboard-card h2{
-  font-size:22px;
-  font-weight:900;
-  color:#0b5fff;
-  margin:0;
-  letter-spacing:-0.02em;
-}
-
-/* Home nav grid */
-.nav-grid {
+/* Two-column home tiles */
+.app-grid{
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  margin-top: 16px;
+  gap: 12px;
+  margin-top: 14px;
 }
 
-.nav-card {
-  width: 100%;
-  text-align: left;
-  padding: 14px 14px;
-  border: 1px solid #e5e7eb; /* light grey border */
+.app-tile{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  text-align: center;
+
+  padding: 14px 12px;
   border-radius: 14px;
+
+  border: 1px solid #d1d5db;       /* light grey border */
   background: #ffffff;
-  font-weight: 800;          /* bold */
-  color: #0b5cff;            /* strong blue */
-  font-size: 18px;           /* slightly larger */
+
+  color: var(--blue);               /* blue text */
+  font-weight: 900;                 /* bold */
+  font-size: 16px;
   letter-spacing: 0.2px;
 }
 
-.nav-card:active {
-  transform: translateY(1px);
+.app-tile:hover{
+  background: #f8fafc;
+  border-color: #cbd5e1;
 }
-
-/* Optional: make it one column on tiny screens */
-@media (max-width: 520px) {
-  .nav-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
