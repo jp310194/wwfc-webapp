@@ -1,143 +1,124 @@
-/* ===== WWFC Global Styles ===== */
-
-:root {
-  --bg: #ffffff;
-  --text: #111827;
-  --muted: #6b7280;
-  --border: #e5e7eb;
-  --card: #ffffff;
-  --shadow: 0 1px 2px rgba(0,0,0,0.06);
-  --radius: 14px;
+:root{
+  --bg:#ffffff;
+  --text:#111827;
+  --muted:#6b7280;
+  --border:#e5e7eb;
+  --blue:#0b5fff;
 }
 
-* { box-sizing: border-box; }
-
-html, body {
-  padding: 0;
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  padding-bottom:56px; /* space for ticker */
 }
 
-a { color: inherit; text-decoration: none; }
-
-button {
-  font: inherit;
+/* ===== WWFC basic headings ===== */
+h1{
+  font-size:28px;
+  font-weight:900;
+  margin:0 0 14px 0;
+  letter-spacing:-0.02em;
 }
 
-/* Page layout helpers used by app/page.tsx */
-.app-page {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+h2{
+  font-size:18px;
+  font-weight:900;
+  margin:0 0 10px 0;
 }
 
-.app-section {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 16px;
+/* ===== Reusable UI classes used on home page ===== */
+.app-wrap{
+  max-width:960px;
+  margin:0 auto;
+  padding:20px;
 }
 
-.app-title {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+.app-subtitle{
+  color:var(--muted);
+  margin-top:6px;
+  margin-bottom:14px;
 }
 
-.app-subtitle {
-  margin: 6px 0 0;
-  color: var(--muted);
-  font-size: 14px;
+.app-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:12px;
 }
 
-.app-heading {
-  margin: 0 0 10px;
-  font-size: 16px;
-  font-weight: 800;
+.app-btn{
+  appearance:none;
+  border:1px solid var(--border);
+  background:#fff;
+  color:var(--text);
+  padding:10px 14px;
+  border-radius:12px;
+  font-weight:800;
+  cursor:pointer;
 }
 
-.app-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 14px;
+.app-btn:hover{
+  border-color:#cbd5e1;
+  transform: translateY(-1px);
 }
 
-@media (min-width: 640px) {
-  .app-actions {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
+.app-section{
+  margin-top:18px;
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:14px;
+  background:#fff;
 }
 
-.app-btn {
-  appearance: none;
-  border: 1px solid var(--border);
-  background: #f9fafb;
-  border-radius: 12px;
-  padding: 12px 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform .05s ease, background .15s ease, border-color .15s ease;
+.app-heading{
+  margin:0 0 10px 0;
+  font-weight:900;
 }
 
-.app-btn:hover {
-  background: #ffffff;
-  border-color: #d1d5db;
+.app-list{
+  margin:6px 0 0 18px;
+  padding:0;
 }
 
-.app-btn:active {
-  transform: translateY(1px);
+.app-list li{
+  margin:6px 0;
+  color:var(--text);
 }
 
-.app-list {
-  margin: 0;
-  padding-left: 18px;
-  color: var(--text);
+/* ===== Bottom ticker ===== */
+.ticker{
+  position:fixed;
+  left:0;
+  right:0;
+  bottom:0;
+  height:44px;
+  background:var(--blue);
+  display:flex;
+  align-items:center;
+  overflow:hidden;
+  z-index:9999;
 }
 
-.app-list li {
-  margin: 6px 0;
-  color: var(--text);
-/* ===== Bottom Ticker ===== */
-.ticker {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 44px;
-  background: #0b5fff;
-  display: flex;
-  align-items: center;
-  overflow: hidden;
-  z-index: 9999;
+.ticker__track{
+  display:flex;
+  width:max-content;
+  animation:ticker-scroll 12s linear infinite;
 }
 
-.ticker__track {
-  display: flex;
-  width: max-content;
-  animation: ticker-scroll 12s linear infinite;
+.ticker__text{
+  color:#fff;
+  font-weight:900;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  white-space:nowrap;
+  padding-left:24px;
 }
 
-.ticker__text {
-  color: #ffffff;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  padding-left: 24px;
+@keyframes ticker-scroll{
+  from{ transform:translateX(0); }
+  to{ transform:translateX(-50%); }
 }
-
-@keyframes ticker-scroll {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
-}
-
-body {
-  padding-bottom: 56px;
-}
-
-
