@@ -4,25 +4,34 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/utils/supabase/client";
 
+type StatRow = {
+  player_id: string;
+  appearances: number;
+  goals: number;
+  assists: number;
+  clean_sheets: number;
+  motm: number;
+};
+
 type Row = {
   id: string;
   name: string;
-  appearances: string | number;
-  goals: string | number;
-  assists: string | number;
-  clean_sheets: string | number;
-  motm: string | number;
+  // store as string for inputs so blanks are allowed
+  appearances: string;
+  goals: string;
+  assists: string;
+  clean_sheets: string;
+  motm: string;
 };
 
 const FIELDS = ["appearances", "goals", "assists", "clean_sheets", "motm"] as const;
 
-function toInt(v: any) {
-  // Keep empty as 0, but never allow NaN
-  if (v === null || v === undefined) return 0;
-  const s = String(v).trim();
-  if (s === "") return 0;
+function asIntOrNull(v: string): number | null {
+  const s = (v ?? "").trim();
+  if (s === "") return null; // IMPORTANT: blank means "no change"
   const n = Number(s);
-  return Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0;
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.trunc(n));
 }
 
 export default function PerformancePage() {
@@ -59,65 +68,67 @@ export default function PerformancePage() {
 
     if (meErr) {
       setLoading(false);
-      setStatus("Could not load your profile role.");
+      setStatus("Could not load role: " + meErr.message);
       return;
     }
 
-    const admin = me?.role === "admin";
-    setIsAdmin(admin);
+    setIsAdmin(me?.role === "admin");
 
-    const { data, error } = await supabaseBrowser
+    // 1) Players
+    const { data: players, error: playersErr } = await supabaseBrowser
       .from("profiles")
-      .select(
-        `
-        id,
-        name,
-        player_stats (
-          appearances,
-          goals,
-          assists,
-          clean_sheets,
-          motm
-        )
-      `
-      );
+      .select("id, name");
 
-    if (error) {
+    if (playersErr) {
       setLoading(false);
-      setStatus("Load failed: " + error.message);
+      setStatus("Load players failed: " + playersErr.message);
       return;
     }
 
-    const mapped: Row[] =
-      data?.map((p: any) => ({
+    // 2) Stats (separate fetch, then merge)
+    const { data: stats, error: statsErr } = await supabaseBrowser
+      .from("player_stats")
+      .select("player_id, appearances, goals, assists, clean_sheets, motm");
+
+    if (statsErr) {
+      setLoading(false);
+      setStatus("Load stats failed: " + statsErr.message);
+      return;
+    }
+
+    const statsById = new Map<string, StatRow>();
+    (stats ?? []).forEach((s: any) => {
+      statsById.set(s.player_id, {
+        player_id: s.player_id,
+        appearances: s.appearances ?? 0,
+        goals: s.goals ?? 0,
+        assists: s.assists ?? 0,
+        clean_sheets: s.clean_sheets ?? 0,
+        motm: s.motm ?? 0,
+      });
+    });
+
+    const mapped: Row[] = (players ?? []).map((p: any) => {
+      const s = statsById.get(p.id);
+      return {
         id: p.id,
         name: p.name,
-        // IMPORTANT: always store as numbers initially so they display (no blanks)
-        appearances: p.player_stats?.[0]?.appearances ?? 0,
-        goals: p.player_stats?.[0]?.goals ?? 0,
-        assists: p.player_stats?.[0]?.assists ?? 0,
-        clean_sheets: p.player_stats?.[0]?.clean_sheets ?? 0,
-        motm: p.player_stats?.[0]?.motm ?? 0,
-      })) ?? [];
+        // show existing values as strings so they stay visible after reload
+        appearances: String(s?.appearances ?? 0),
+        goals: String(s?.goals ?? 0),
+        assists: String(s?.assists ?? 0),
+        clean_sheets: String(s?.clean_sheets ?? 0),
+        motm: String(s?.motm ?? 0),
+      };
+    });
 
     mapped.sort((a, b) => Number(b.appearances) - Number(a.appearances));
+
     setRows(mapped);
     setLoading(false);
   }
 
-  function payloadFromRow(r: Row) {
-    return {
-      player_id: r.id,
-      appearances: toInt(r.appearances),
-      goals: toInt(r.goals),
-      assists: toInt(r.assists),
-      clean_sheets: toInt(r.clean_sheets),
-      motm: toInt(r.motm),
-    };
-  }
-
-  async function reReadSavedRow(playerId: string) {
-    // Re-fetch just the saved row to confirm persistence
+  async function getExistingStats(playerId: string): Promise<StatRow> {
     const { data, error } = await supabaseBrowser
       .from("player_stats")
       .select("player_id, appearances, goals, assists, clean_sheets, motm")
@@ -125,92 +136,146 @@ export default function PerformancePage() {
       .maybeSingle();
 
     if (error) throw new Error(error.message);
-    return data;
+
+    return {
+      player_id: playerId,
+      appearances: data?.appearances ?? 0,
+      goals: data?.goals ?? 0,
+      assists: data?.assists ?? 0,
+      clean_sheets: data?.clean_sheets ?? 0,
+      motm: data?.motm ?? 0,
+    };
   }
 
   async function save(r: Row) {
-    if (!isAdmin) return;
+    if (!isAdmin) {
+      setStatus("Not allowed: you are not admin.");
+      return;
+    }
 
     setSavingRowId(r.id);
     setStatus("");
 
-    const payload = payloadFromRow(r);
-
-    const { error } = await supabaseBrowser
-      .from("player_stats")
-      .upsert(payload, { onConflict: "player_id" });
-
-    if (error) {
-      setSavingRowId(null);
-      setStatus("Save failed: " + error.message);
-      return;
-    }
-
-    // Update local screen immediately with normalised numbers
-    setRows((prev) =>
-      prev.map((x) =>
-        x.id === r.id
-          ? {
-              ...x,
-              appearances: payload.appearances,
-              goals: payload.goals,
-              assists: payload.assists,
-              clean_sheets: payload.clean_sheets,
-              motm: payload.motm,
-            }
-          : x
-      )
-    );
-
-    // Confirm it actually persisted in DB
     try {
-      await reReadSavedRow(r.id);
+      // Merge: blank inputs do NOT overwrite existing values
+      const existing = await getExistingStats(r.id);
+
+      const payload = {
+        player_id: r.id,
+        appearances: asIntOrNull(r.appearances) ?? existing.appearances,
+        goals: asIntOrNull(r.goals) ?? existing.goals,
+        assists: asIntOrNull(r.assists) ?? existing.assists,
+        clean_sheets: asIntOrNull(r.clean_sheets) ?? existing.clean_sheets,
+        motm: asIntOrNull(r.motm) ?? existing.motm,
+      };
+
+      const { error } = await supabaseBrowser
+        .from("player_stats")
+        .upsert(payload, { onConflict: "player_id" });
+
+      if (error) throw new Error(error.message);
+
+      // Update local row to reflect exactly what's now saved
+      setRows((prev) =>
+        prev.map((x) =>
+          x.id === r.id
+            ? {
+                ...x,
+                appearances: String(payload.appearances),
+                goals: String(payload.goals),
+                assists: String(payload.assists),
+                clean_sheets: String(payload.clean_sheets),
+                motm: String(payload.motm),
+              }
+            : x
+        )
+      );
+
       setStatus("Saved ✅");
     } catch (e: any) {
-      setStatus(
-        "Saved locally, but DB re-check failed (likely permissions/RLS): " + e.message
-      );
+      setStatus("Save failed: " + e.message);
     } finally {
       setSavingRowId(null);
     }
   }
 
   async function saveAll() {
-    if (!isAdmin) return;
+    if (!isAdmin) {
+      setStatus("Not allowed: you are not admin.");
+      return;
+    }
 
     setSavingAll(true);
     setStatus("");
 
-    const payload = rows.map(payloadFromRow);
+    try {
+      // Load all existing stats once
+      const { data: stats, error: statsErr } = await supabaseBrowser
+        .from("player_stats")
+        .select("player_id, appearances, goals, assists, clean_sheets, motm");
 
-    const { error } = await supabaseBrowser
-      .from("player_stats")
-      .upsert(payload, { onConflict: "player_id" });
+      if (statsErr) throw new Error(statsErr.message);
 
-    if (error) {
-      setSavingAll(false);
-      setStatus("Save all failed: " + error.message);
-      return;
-    }
+      const existingById = new Map<string, StatRow>();
+      (stats ?? []).forEach((s: any) => {
+        existingById.set(s.player_id, {
+          player_id: s.player_id,
+          appearances: s.appearances ?? 0,
+          goals: s.goals ?? 0,
+          assists: s.assists ?? 0,
+          clean_sheets: s.clean_sheets ?? 0,
+          motm: s.motm ?? 0,
+        });
+      });
 
-    // Normalise local display
-    setRows((prev) =>
-      prev.map((x) => {
-        const p = payload.find((q) => q.player_id === x.id);
-        if (!p) return x;
-        return {
-          ...x,
-          appearances: p.appearances,
-          goals: p.goals,
-          assists: p.assists,
-          clean_sheets: p.clean_sheets,
-          motm: p.motm,
+      const payload = rows.map((r) => {
+        const ex = existingById.get(r.id) ?? {
+          player_id: r.id,
+          appearances: 0,
+          goals: 0,
+          assists: 0,
+          clean_sheets: 0,
+          motm: 0,
         };
-      })
-    );
 
-    setSavingAll(false);
-    setStatus("Saved all ✅");
+        return {
+          player_id: r.id,
+          appearances: asIntOrNull(r.appearances) ?? ex.appearances,
+          goals: asIntOrNull(r.goals) ?? ex.goals,
+          assists: asIntOrNull(r.assists) ?? ex.assists,
+          clean_sheets: asIntOrNull(r.clean_sheets) ?? ex.clean_sheets,
+          motm: asIntOrNull(r.motm) ?? ex.motm,
+        };
+      });
+
+      const { error } = await supabaseBrowser
+        .from("player_stats")
+        .upsert(payload, { onConflict: "player_id" });
+
+      if (error) throw new Error(error.message);
+
+      // Normalize local view to what we saved
+      setRows((prev) =>
+        prev.map((r) => {
+          const p = payload.find((x) => x.player_id === r.id);
+          if (!p) return r;
+          return {
+            ...r,
+            appearances: String(p.appearances),
+            goals: String(p.goals),
+            assists: String(p.assists),
+            clean_sheets: String(p.clean_sheets),
+            motm: String(p.motm),
+          };
+        })
+      );
+
+      setStatus("Saved all ✅");
+    } catch (e: any) {
+      setStatus("Save all failed: " + e.message);
+    } finally {
+      setSavingAll(false);
+    }
   }
 
   const rankSortedRows = useMemo(() => {
@@ -245,11 +310,7 @@ export default function PerformancePage() {
           </button>
         )}
 
-        {status && (
-          <span className="text-sm text-gray-600 ml-2">
-            {status}
-          </span>
-        )}
+        {status && <span className="text-sm text-gray-600 ml-2">{status}</span>}
       </div>
 
       <h1 className="text-2xl font-semibold">Performance</h1>
@@ -281,7 +342,7 @@ export default function PerformancePage() {
                       <input
                         type="number"
                         className="w-20 border rounded px-2 py-1"
-                        value={String((r as any)[k] ?? 0)}
+                        value={(r as any)[k] ?? "0"}
                         onChange={(e) =>
                           setRows((prev) =>
                             prev.map((x) =>
@@ -293,7 +354,7 @@ export default function PerformancePage() {
                         min={0}
                       />
                     ) : (
-                      String((r as any)[k] ?? 0)
+                      (r as any)[k]
                     )}
                   </td>
                 ))}
