@@ -82,6 +82,7 @@ export default async function HomePage() {
         <div className="app-grid">
           <Link className="app-tile" href="/profile">My Profile</Link>
           <Link className="app-tile" href="/players">Players</Link>
+          <Link className="app-tile" href="/performance">Performance</Link>
           <Link className="app-tile" href="/fixtures">Fixtures</Link>
           <Link className="app-tile" href="/events">Events</Link>
           <Link className="app-tile" href="/forum">Forum</Link>
