@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { supabaseBrowser } from "@/utils/supabase/client";
 
 export default function PerformancePage() {
@@ -45,28 +44,41 @@ export default function PerformancePage() {
       data?.map((p: any) => ({
         id: p.id,
         name: p.name,
-        ...p.player_stats?.[0],
+        appearances: p.player_stats?.[0]?.appearances ?? 0,
+        goals: p.player_stats?.[0]?.goals ?? 0,
+        assists: p.player_stats?.[0]?.assists ?? 0,
+        clean_sheets: p.player_stats?.[0]?.clean_sheets ?? 0,
+        motm: p.player_stats?.[0]?.motm ?? 0,
       })) ?? [];
 
-    mapped.sort((a, b) => (b.appearances ?? 0) - (a.appearances ?? 0));
+    mapped.sort((a, b) => b.appearances - a.appearances);
 
     setRows(mapped);
   }
 
   async function save(r: any) {
-    await fetch("/api/performance/update", {
+    const payload = {
+      player_id: r.id,
+      appearances: Number(r.appearances) || 0,
+      goals: Number(r.goals) || 0,
+      assists: Number(r.assists) || 0,
+      clean_sheets: Number(r.clean_sheets) || 0,
+      motm: Number(r.motm) || 0,
+    };
+
+    const res = await fetch("/api/performance/update", {
       method: "POST",
-      body: JSON.stringify({
-        player_id: r.id,
-        appearances: Number(r.appearances),
-        goals: Number(r.goals),
-        assists: Number(r.assists),
-        clean_sheets: Number(r.clean_sheets),
-        motm: Number(r.motm),
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
 
-    load();
+    if (!res.ok) {
+      const text = await res.text();
+      alert("Save failed: " + text);
+      return;
+    }
+
+    await load();
   }
 
   return (
@@ -99,17 +111,19 @@ export default function PerformancePage() {
                       <input
                         type="number"
                         className="w-16 border rounded px-1"
-                        value={r[k] ?? 0}
-                        onChange={(e) =>
+                        value={r[k]}
+                        onChange={(e) => {
+                          const value =
+                            e.target.value === "" ? 0 : Number(e.target.value);
                           setRows((prev) =>
                             prev.map((x) =>
-                              x.id === r.id ? { ...x, [k]: e.target.value } : x
+                              x.id === r.id ? { ...x, [k]: value } : x
                             )
-                          )
-                        }
+                          );
+                        }}
                       />
                     ) : (
-                      r[k] ?? 0
+                      r[k]
                     )}
                   </td>
                 ))}
