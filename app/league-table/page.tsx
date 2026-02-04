@@ -1,53 +1,34 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import Link from "next/link";
 
-export default function HomePage() {
-  const router = useRouter();
+export default function LeagueTablePage() {
+  useEffect(() => {
+    window.location.href =
+      "https://mitoofootball.com/LeagueTab.cfm?TblName=Matches&DivisionID=103&LeagueCode=MDX2025";
+  }, []);
 
   return (
     <main style={{ padding: 20 }}>
-      <h1>Wiseman West FC</h1>
+      <Link href="/" style={{ display: "inline-block", marginBottom: 10 }}>
+        ← Home
+      </Link>
 
-      <div style={{ display: "grid", gap: 12, marginTop: 20, maxWidth: 420 }}>
-        <button
-          onClick={() => router.push("/fixtures")}
-          style={tileStyle}
-        >
-          Fixtures
-        </button>
+      <h1>League Table</h1>
+      <p>Opening live league table…</p>
 
-        <button
-          onClick={() => router.push("/players")}
-          style={tileStyle}
+      <p style={{ marginTop: 12 }}>
+        If nothing happens,{" "}
+        <a
+          href="https://mitoofootball.com/LeagueTab.cfm?TblName=Matches&DivisionID=103&LeagueCode=MDX2025"
+          target="_blank"
+          rel="noreferrer"
         >
-          Players
-        </button>
-
-        <button
-          onClick={() => router.push("/performance")}
-          style={tileStyle}
-        >
-          Performance
-        </button>
-
-        <button
-          onClick={() => router.push("/league-table")}
-          style={tileStyle}
-        >
-          League Table
-        </button>
-      </div>
+          tap here to open it
+        </a>
+        .
+      </p>
     </main>
   );
 }
-
-const tileStyle: React.CSSProperties = {
-  padding: "14px 16px",
-  borderRadius: 10,
-  border: "1px solid #111",
-  background: "#111",
-  color: "white",
-  fontSize: 16,
-  cursor: "pointer",
-};
