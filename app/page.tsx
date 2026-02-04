@@ -26,7 +26,6 @@ export default async function HomePage() {
 
   const { data, error } = await supabase.rpc("next_up").maybeSingle<NextUpRow>();
 
-  // If the RPC fails, we still render the page (and show a small message)
   const nextUp = !error ? data : null;
 
   return (
@@ -45,7 +44,9 @@ export default async function HomePage() {
         ) : nextUp ? (
           <div className="app-card">
             <div className="app-card-top">
-              <div className="app-pill">{nextUp.kind === "fixture" ? "FIXTURE" : "EVENT"}</div>
+              <div className="app-pill">
+                {nextUp.kind === "fixture" ? "FIXTURE" : "EVENT"}
+              </div>
               <div className="app-card-title">{nextUp.title}</div>
             </div>
 
@@ -53,7 +54,6 @@ export default async function HomePage() {
               <div><b>When:</b> {formatDateTime(nextUp.starts_at)}</div>
               {nextUp.location ? <div><b>Where:</b> {nextUp.location}</div> : null}
 
-              {/* Extra fields (only show if present) */}
               {nextUp.extra?.meet_time ? (
                 <div><b>Meet:</b> {formatDateTime(nextUp.extra.meet_time)}</div>
               ) : null}
@@ -66,7 +66,10 @@ export default async function HomePage() {
             </div>
 
             <div style={{ marginTop: 10 }}>
-              <Link className="app-link" href={nextUp.kind === "fixture" ? "/fixtures" : "/events"}>
+              <Link
+                className="app-link"
+                href={nextUp.kind === "fixture" ? "/fixtures" : "/events"}
+              >
                 View all {nextUp.kind === "fixture" ? "fixtures" : "events"} →
               </Link>
             </div>
@@ -82,10 +85,14 @@ export default async function HomePage() {
         <div className="app-grid">
           <Link className="app-tile" href="/profile">My Profile</Link>
           <Link className="app-tile" href="/players">Players</Link>
-<Link className="app-tile" href="/transfer-value">Transfer Value</Link>
+          <Link className="app-tile" href="/transfer-value">Transfer Value</Link>
           <Link className="app-tile" href="/events">Events</Link>
           <Link className="app-tile" href="/performance">Performance</Link>
           <Link className="app-tile" href="/fixtures">Fixtures</Link>
+
+          {/* ✅ NEW TILE */}
+          <Link className="app-tile" href="/league-table">League Table</Link>
+
           <Link className="app-tile" href="/forum">Forum</Link>
           <Link className="app-tile" href="/ratings">Ratings</Link>
           <Link className="app-tile" href="/motm">MOTM</Link>
