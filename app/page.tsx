@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { supabaseServer } from "@/lib/supabaseServer";
+import EnablePushButton from "@/components/EnablePushButton";
+import RegisterSW from "@/components/RegisterSW";
 
 type NextUpRow = {
   kind: "event" | "fixture";
   id: string;
   title: string;
-  starts_at: string; // ISO timestamp
+  starts_at: string;
   location: string;
-  extra: any; // jsonb
+  extra: any;
 };
 
 function formatDateTime(iso: string) {
@@ -23,9 +25,7 @@ function formatDateTime(iso: string) {
 
 export default async function HomePage() {
   const supabase = supabaseServer();
-
   const { data, error } = await supabase.rpc("next_up").maybeSingle<NextUpRow>();
-
   const nextUp = !error ? data : null;
 
   return (
@@ -52,17 +52,16 @@ export default async function HomePage() {
 
             <div className="app-card-meta">
               <div><b>When:</b> {formatDateTime(nextUp.starts_at)}</div>
-              {nextUp.location ? <div><b>Where:</b> {nextUp.location}</div> : null}
-
-              {nextUp.extra?.meet_time ? (
+              {nextUp.location && <div><b>Where:</b> {nextUp.location}</div>}
+              {nextUp.extra?.meet_time && (
                 <div><b>Meet:</b> {formatDateTime(nextUp.extra.meet_time)}</div>
-              ) : null}
-              {nextUp.extra?.kick_off_time ? (
+              )}
+              {nextUp.extra?.kick_off_time && (
                 <div><b>Kick off:</b> {formatDateTime(nextUp.extra.kick_off_time)}</div>
-              ) : null}
-              {nextUp.extra?.kit_colour ? (
+              )}
+              {nextUp.extra?.kit_colour && (
                 <div><b>Kit:</b> {nextUp.extra.kit_colour}</div>
-              ) : null}
+              )}
             </div>
 
             <div style={{ marginTop: 10 }}>
@@ -81,7 +80,9 @@ export default async function HomePage() {
           </div>
         )}
 
-        {/* Buttons grid (2 columns) */}
+        {/* Registers your PWA service worker */}
+        <RegisterSW />
+
         <div className="app-grid">
           <Link className="app-tile" href="/profile">My Profile</Link>
           <Link className="app-tile" href="/players">Players</Link>
@@ -89,14 +90,14 @@ export default async function HomePage() {
           <Link className="app-tile" href="/events">Events</Link>
           <Link className="app-tile" href="/performance">Performance</Link>
           <Link className="app-tile" href="/fixtures">Fixtures</Link>
-
-          {/* ✅ NEW TILE */}
           <Link className="app-tile" href="/league-table">League Table</Link>
-
           <Link className="app-tile" href="/forum">Forum</Link>
           <Link className="app-tile" href="/ratings">Ratings</Link>
           <Link className="app-tile" href="/motm">MOTM</Link>
         </div>
+
+        {/* Push button */}
+        <EnablePushButton />
       </div>
     </div>
   );
