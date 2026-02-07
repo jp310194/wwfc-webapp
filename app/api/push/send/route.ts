@@ -2,12 +2,6 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import webpush from "web-push";
 
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT!,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-);
-
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -15,7 +9,18 @@ const supabaseAdmin = createClient(
 
 export async function POST(req: Request) {
   try {
-    // ✅ Read access token from Authorization header
+    // ✅ Set VAPID details at request-time (avoids build-time crash)
+    const subject = process.env.VAPID_SUBJECT;
+    const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    const privateKey = process.env.VAPID_PRIVATE_KEY;
+
+    if (!subject) return new NextResponse("Missing VAPID_SUBJECT", { status: 500 });
+    if (!publicKey) return new NextResponse("Missing NEXT_PUBLIC_VAPID_PUBLIC_KEY", { status: 500 });
+    if (!privateKey) return new NextResponse("Missing VAPID_PRIVATE_KEY", { status: 500 });
+
+    webpush.setVapidDetails(subject, publicKey, privateKey);
+
+    // ✅ Auth via Bearer token from admin page
     const authHeader = req.headers.get("authorization") || "";
     const token = authHeader.startsWith("Bearer ")
       ? authHeader.slice("Bearer ".length)
@@ -23,13 +28,9 @@ export async function POST(req: Request) {
 
     if (!token) return new NextResponse("Not authenticated", { status: 401 });
 
-    // ✅ Validate token + get user
     const { data: userRes, error: userErr } = await supabaseAdmin.auth.getUser(token);
-    if (userErr || !userRes?.user) {
-      return new NextResponse("Not authenticated", { status: 401 });
-    }
+    if (userErr || !userRes?.user) return new NextResponse("Not authenticated", { status: 401 });
 
-    // ✅ Admin check (using service role to read profile)
     const { data: profile, error: profErr } = await supabaseAdmin
       .from("profiles")
       .select("role")
@@ -37,9 +38,7 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (profErr) return new NextResponse(profErr.message, { status: 500 });
-    if (profile?.role !== "admin") {
-      return new NextResponse("Forbidden (admin only)", { status: 403 });
-    }
+    if (profile?.role !== "admin") return new NextResponse("Forbidden (admin only)", { status: 403 });
 
     const { title, body, url } = await req.json();
 
