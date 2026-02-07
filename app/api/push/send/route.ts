@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import webpush from "web-push";
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { createClient } from "@supabase/supabase-js";
 
 export async function POST(req: Request) {
   try {
-    // ✅ Set VAPID details at request-time (avoids build-time crash)
+    // ✅ Read env at request-time (avoids build-time evaluation failures)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl) return new NextResponse("Missing NEXT_PUBLIC_SUPABASE_URL", { status: 500 });
+    if (!serviceKey) return new NextResponse("Missing SUPABASE_SERVICE_ROLE_KEY", { status: 500 });
+
     const subject = process.env.VAPID_SUBJECT;
     const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
     const privateKey = process.env.VAPID_PRIVATE_KEY;
@@ -20,7 +21,10 @@ export async function POST(req: Request) {
 
     webpush.setVapidDetails(subject, publicKey, privateKey);
 
-    // ✅ Auth via Bearer token from admin page
+    // ✅ Create admin client only now
+    const supabaseAdmin = createClient(supabaseUrl, serviceKey);
+
+    // ✅ Auth via Bearer token (sent from /admin/push page)
     const authHeader = req.headers.get("authorization") || "";
     const token = authHeader.startsWith("Bearer ")
       ? authHeader.slice("Bearer ".length)
@@ -31,6 +35,7 @@ export async function POST(req: Request) {
     const { data: userRes, error: userErr } = await supabaseAdmin.auth.getUser(token);
     if (userErr || !userRes?.user) return new NextResponse("Not authenticated", { status: 401 });
 
+    // ✅ Admin check
     const { data: profile, error: profErr } = await supabaseAdmin
       .from("profiles")
       .select("role")
